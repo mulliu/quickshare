@@ -9,16 +9,15 @@ Double-click the exe, your browser opens automatically with a QR code. Scan it w
 
 ## Quick Start / 快速开始
 
-**Windows（推荐）**：从 Releases 下载 `quickshare-windows-x86_64.exe`，双击运行即可。
+**Windows（推荐）**：从 [Releases](https://github.com/mulliu/quickshare/releases) 下载 `quickshare-windows-x86_64.exe`，双击运行即可。
 
 **终端 / Terminal**：
 ```bash
-# Download from Releases, then:
+# Build from source:
+git clone https://github.com/mulliu/quickshare.git
+cd quickshare
+go build -o quickshare .
 ./quickshare
-
-# Or with Go installed:
-go install github.com/mulliu/quickshare@latest
-quickshare
 ```
 
 ## Features / 功能
@@ -100,7 +99,7 @@ The server monitors heartbeat signals from the browser. When all browser tabs ar
 Requires Go 1.26+. / 需要 Go 1.26+。
 
 ```bash
-git clone https://github.com/mulliu/quickshare
+git clone https://github.com/mulliu/quickshare.git
 cd quickshare
 go build -o quickshare .
 ```
