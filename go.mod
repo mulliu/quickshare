@@ -1,4 +1,4 @@
-module github.com/user/quickshare
+module github.com/mulliu/quickshare
 
 go 1.26.3
 

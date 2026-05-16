@@ -17,7 +17,7 @@ Double-click the exe, your browser opens automatically with a QR code. Scan it w
 ./quickshare
 
 # Or with Go installed:
-go install github.com/user/quickshare@latest
+go install github.com/mulliu/quickshare@latest
 quickshare
 ```
 
@@ -100,7 +100,7 @@ The server monitors heartbeat signals from the browser. When all browser tabs ar
 Requires Go 1.26+. / 需要 Go 1.26+。
 
 ```bash
-git clone https://github.com/user/quickshare
+git clone https://github.com/mulliu/quickshare
 cd quickshare
 go build -o quickshare .
 ```
