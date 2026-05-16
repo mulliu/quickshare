@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>QuickShare</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #e0e0e0;
+    --text-secondary: #888;
+    --accent: #4f8cff;
+    --accent-hover: #6ba0ff;
+    --success: #34d399;
+    --error: #f87171;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+  .container { width: 100%; max-width: 480px; }
+
+  /* QR section - shown prominently for scanning */
+  .qr-section {
+    text-align: center;
+    margin-bottom: 24px;
+    padding: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .qr-section .url {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    word-break: break-all;
+    margin-bottom: 16px;
+  }
+  .qr-section .label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .qr-section img {
+    display: block;
+    margin: 0 auto;
+    max-width: 240px;
+    image-rendering: pixelated;
+  }
+
+  .header { text-align: center; margin-bottom: 24px; }
+  .header h1 { font-size: 24px; font-weight: 700; }
+  .header p { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .upload-zone:hover {
+    border-color: var(--accent);
+    background: rgba(79,140,255,0.05);
+  }
+  .upload-zone .icon { font-size: 40px; margin-bottom: 12px; }
+  .upload-zone .label { font-size: 16px; font-weight: 500; }
+  .upload-zone .hint { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+  #file-input { display: none; }
+
+  .share-text { margin-top: 16px; }
+  .share-text-header { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+  .share-text-input {
+    width: 100%; box-sizing: border-box; resize: vertical;
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px; font-size: 14px;
+    font-family: inherit; line-height: 1.5; outline: none; transition: border-color 0.2s;
+  }
+  .share-text-input:focus { border-color: var(--accent); }
+  .share-text-btn {
+    display: block; width: 100%; margin-top: 8px;
+    background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
+    padding: 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s;
+  }
+  .share-text-btn:active { opacity: 0.8; }
+
+  .progress-area { display: none; margin-top: 16px; }
+  .progress-area.active { display: block; }
+  .progress-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .progress-card .filename { font-size: 14px; font-weight: 500; margin-bottom: 8px; word-break: break-all; }
+  .progress-bar-bg {
+    width: 100%; height: 8px;
+    background: var(--border); border-radius: 4px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%; width: 0%;
+    background: var(--accent); border-radius: 4px; transition: width 0.2s;
+  }
+  .progress-info {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--text-secondary); margin-top: 6px;
+  }
+  .progress-status { font-size: 13px; margin-top: 8px; text-align: center; }
+  .progress-status.success { color: var(--success); }
+  .progress-status.error { color: var(--error); }
+
+  .section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin: 24px 0 8px; }
+  .file-list { list-style: none; }
+  .file-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .file-item .info { flex: 1; min-width: 0; }
+  .file-item .info .name {
+    font-size: 14px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .file-item .info .meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .file-item .download-btn {
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+    white-space: nowrap; text-decoration: none; display: inline-block;
+  }
+  .file-item .download-btn:active { opacity: 0.8; }
+
+  .footer { text-align: center; margin-top: 32px; font-size: 12px; color: var(--text-secondary); }
+  .stop-btn {
+    background: none; border: 1px solid var(--border); color: var(--text-secondary);
+    border-radius: 8px; padding: 6px 16px; font-size: 12px; cursor: pointer; margin-top: 12px;
+  }
+  .stop-btn:hover { border-color: var(--error); color: var(--error); }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f5f7; --surface: #fff; --border: #d2d2d7;
+      --text: #1d1d1f; --text-secondary: #86868b;
+    }
+  }
+
+  @media (min-width: 800px) {
+    body { padding: 32px 24px; }
+    .container { max-width: 900px; }
+    .main-grid {
+      display: flex; gap: 24px; align-items: flex-start;
+    }
+    .main-grid .col-left { flex: 1; min-width: 0; }
+    .main-grid .col-right { width: 380px; flex-shrink: 0; }
+    .qr-section { display: flex; align-items: center; gap: 24px; text-align: left; padding: 20px; }
+    .qr-section .qr-text { flex: 1; }
+    .qr-section .qr-text .url { margin-bottom: 4px; font-size: 16px; }
+    .qr-section .qr-text .label { margin-bottom: 0; }
+    .qr-section img { max-width: 120px; margin: 0; }
+    .upload-zone { padding: 32px 24px; }
+    .file-list { max-height: 400px; overflow-y: auto; }
+    .share-text { margin-top: 0; position: sticky; top: 32px; }
+    .share-text-input { min-height: 240px; }
+  }
+
+  @media (min-width: 1000px) {
+    .main-grid .col-right { width: 360px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="qr-section">
+    <img src="/qr.png" alt="QR Code">
+    <div class="qr-text">
+      <div class="url">{{.BaseURL}}</div>
+      <div class="label">扫码或浏览器打开 · Scan QR or open URL</div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="col-left">
+
+  <div class="upload-zone" id="upload-zone">
+    <div class="icon">📁</div>
+    <div class="label" id="upload-label">点击选择文件 · Tap to select a file</div>
+    <div class="hint">上传到电脑 · Send to your computer</div>
+    <input type="file" id="file-input" />
+  </div>
+
+  <div class="progress-area" id="progress-area">
+    <div class="progress-card">
+      <div class="filename" id="progress-filename"></div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <div class="progress-info">
+        <span id="progress-transferred">0 B</span>
+        <span id="progress-speed"></span>
+      </div>
+      <div class="progress-status" id="progress-status"></div>
+    </div>
+  </div>
+
+  <div class="progress-area" id="success-area">
+    <div class="progress-card">
+      <div class="progress-status success">发送成功 · Sent!</div>
+      <div style="text-align:center;margin-top:8px;">
+        <button class="download-btn" id="send-another-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border);">继续发送 · Send More</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">可下载文件 · Downloads</div>
+  <ul class="file-list" id="file-list"></ul>
+
+    </div><!-- /col-left -->
+    <div class="col-right">
+
+  <div class="share-text" id="share-text">
+    <div class="share-text-header">📝 共享文本 · Share Text</div>
+    <textarea class="share-text-input" id="text-input" placeholder="输入或粘贴文本 · Type or paste here..." rows="3"></textarea>
+    <button class="share-text-btn" id="share-text-btn">发送 · Share</button>
+  </div>
+
+    </div>
+  </div><!-- /main-grid -->
+
+  <div class="footer">
+    QuickShare v0.1.0
+    <br><button class="stop-btn" id="stop-btn">停止服务 · Stop Server</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var baseURL = '{{.BaseURL}}';
+
+  refreshFiles();
+  setInterval(refreshFiles, 3000);
+
+  pollLatestText();
+  setInterval(pollLatestText, 2000);
+
+  document.getElementById('upload-zone').addEventListener('click', function() {
+    document.getElementById('file-input').click();
+  });
+
+  document.getElementById('file-input').addEventListener('change', function() {
+    if (this.files && this.files[0]) uploadFile(this.files[0]);
+    this.value = '';
+  });
+
+  document.getElementById('send-another-btn').addEventListener('click', function() {
+    document.getElementById('success-area').classList.remove('active');
+  });
+
+  document.getElementById('share-text-btn').addEventListener('click', shareText);
+  document.getElementById('text-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.ctrlKey) shareText();
+  });
+
+  var currentXHR = null;
+
+  function uploadFile(file) {
+    if (currentXHR) return;
+    var formData = new FormData();
+    formData.append('file', file);
+
+    var xhr = new XMLHttpRequest();
+    currentXHR = xhr;
+
+    document.getElementById('upload-zone').style.display = 'none';
+    document.getElementById('success-area').classList.remove('active');
+    document.getElementById('progress-area').classList.add('active');
+    document.getElementById('progress-filename').textContent = file.name;
+    document.getElementById('progress-fill').style.width = '0%';
+    document.getElementById('progress-transferred').textContent = '0 B';
+    document.getElementById('progress-speed').textContent = '';
+    document.getElementById('progress-status').textContent = '';
+    document.getElementById('progress-status').className = 'progress-status';
+
+    var lastLoaded = 0, lastTime = Date.now();
+
+    xhr.upload.addEventListener('progress', function(e) {
+      if (!e.lengthComputable) return;
+      var pct = Math.round(e.loaded / e.total * 100);
+      document.getElementById('progress-fill').style.width = pct + '%';
+      var now = Date.now();
+      var elapsed = (now - lastTime) / 1000;
+      var speed = 0;
+      if (elapsed > 0.1) { speed = (e.loaded - lastLoaded) / elapsed; lastLoaded = e.loaded; lastTime = now; }
+      document.getElementById('progress-transferred').textContent = formatSize(e.loaded) + ' / ' + formatSize(e.total);
+      document.getElementById('progress-speed').textContent = formatSize(speed) + '/s';
+    });
+
+    xhr.addEventListener('load', function() {
+      currentXHR = null;
+      document.getElementById('progress-area').classList.remove('active');
+      if (xhr.status === 200) {
+        document.getElementById('success-area').classList.add('active');
+        document.getElementById('upload-zone').style.display = 'block';
+        refreshFiles();
+      } else {
+        document.getElementById('progress-area').classList.add('active');
+        document.getElementById('progress-status').textContent = 'Upload failed (' + xhr.status + ')';
+        document.getElementById('progress-status').className = 'progress-status error';
+        document.getElementById('upload-zone').style.display = 'block';
+      }
+    });
+
+    xhr.addEventListener('error', function() {
+      currentXHR = null;
+      document.getElementById('progress-status').textContent = 'Upload failed - network error';
+      document.getElementById('progress-status').className = 'progress-status error';
+      document.getElementById('upload-zone').style.display = 'block';
+    });
+
+    xhr.open('POST', baseURL + '/upload', true);
+    xhr.send(formData);
+  }
+
+  function shareText() {
+    var text = document.getElementById('text-input').value;
+    if (!text.trim()) return;
+    var btn = document.getElementById('share-text-btn');
+    btn.textContent = '发送中 · Sending...';
+    btn.disabled = true;
+    fetch(baseURL + '/share-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      lastTextID = data.id;
+    }).catch(function() {
+      alert('发送失败 · Failed to share text');
+    }).finally(function() {
+      btn.textContent = '发送 · Share';
+      btn.disabled = false;
+    });
+  }
+
+  function refreshFiles() {
+    fetch(baseURL + '/files')
+      .then(function(r) { return r.json(); })
+      .then(function(files) {
+        var list = document.getElementById('file-list');
+        if (!files || files.length === 0) {
+          list.innerHTML = '<li class="file-item" style="justify-content:center;color:var(--text-secondary);font-size:13px;">暂无文件 · No files yet</li>';
+          return;
+        }
+        list.innerHTML = files.map(function(f) {
+          var time = f.created_at ? new Date(f.created_at).toLocaleTimeString() : '';
+          return '<li class="file-item">' +
+            '<div class="info"><div class="name">' + esc(f.name) + '</div><div class="meta">' + formatSize(f.size) + (time ? ' · ' + time : '') + '</div></div>' +
+            '<button class="download-btn" onclick="downloadFile(\'' + f.url + '\')">下载 · Download</button></li>';
+        }).join('');
+      }).catch(function() {});
+  }
+
+  window.downloadFile = function(url) {
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  var lastTextID = '';
+
+  function pollLatestText() {
+    fetch(baseURL + '/latest-text')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data && data.id && data.id !== lastTextID) {
+          lastTextID = data.id;
+          document.getElementById('text-input').value = data.content;
+        }
+      }).catch(function() {});
+  }
+
+  function formatSize(bytes) {
+    if (bytes === 0) return '0 B';
+    var units = ['B', 'KB', 'MB', 'GB'];
+    var i = Math.floor(Math.log(bytes) / Math.log(1024));
+    var val = bytes / Math.pow(1024, i);
+    return (i === 0 ? val : val.toFixed(1)) + ' ' + units[i];
+  }
+
+  document.getElementById('stop-btn').addEventListener('click', function() {
+    if (confirm('停止服务？关闭后所有文件将不可用 · Stop server?')) {
+      fetch('/shutdown', { method: 'POST' });
+    }
+  });
+
+  setInterval(function() {
+    fetch('/heartbeat');
+  }, 3000);
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>
