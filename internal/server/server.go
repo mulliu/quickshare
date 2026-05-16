@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/quickshare/internal/fstore"
+	"github.com/mulliu/quickshare/internal/fstore"
 )
 
 //go:embed home.html
@@ -63,7 +63,7 @@ func New(store *fstore.Store, lanIP string, port int, maxSize int64, qrPNG []byt
 		qrPNG:   qrPNG,
 		logFile: f,
 		texts:   make(map[string]textEntry),
-		}, nil
+	}, nil
 }
 
 func (s *Server) Serve(listener net.Listener) error {
@@ -122,14 +122,16 @@ func (s *Server) Heartbeat(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) watchdog() {
-	ticker := time.NewTicker(5 * time.Second)
+	const heartbeatTimeout = 8 * time.Second
+
+	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
 		s.heartbeatMu.Lock()
-		stale := time.Since(s.lastHeartbeat) > 8*time.Second
+		stale := time.Since(s.lastHeartbeat) > heartbeatTimeout
 		s.heartbeatMu.Unlock()
 		if stale {
-			log.Println("No clients detected for 8s, shutting down")
+			log.Printf("No clients detected for %s, shutting down", heartbeatTimeout)
 			s.srv.Shutdown(context.Background())
 			return
 		}

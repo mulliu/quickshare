@@ -33,8 +33,8 @@ type Store struct {
 }
 
 type entry struct {
-	info    FileInfo
-	path    string // full disk path
+	info FileInfo
+	path string // full disk path
 }
 
 // New creates a Store. It creates the output directory if needed and starts the TTL cleanup goroutine.

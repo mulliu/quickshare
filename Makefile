@@ -1,10 +1,13 @@
 APP=quickshare
 VERSION=0.1.0
 
-.PHONY: build build-all clean run test
+.PHONY: build build-windows build-all clean run test
 
 build:
-	go build -ldflags="-X main.version=$(VERSION)" -o $(APP)$(SUFFIX) .
+	go build -ldflags="$(LDFLAGS) -X main.version=$(VERSION)" -o $(APP)$(SUFFIX) .
+
+build-windows:
+	go build -ldflags="-H windowsgui -X main.version=$(VERSION)" -o $(APP).exe .
 
 build-all:
 	GOOS=darwin GOARCH=amd64 go build -ldflags="-X main.version=$(VERSION)" -o dist/$(APP)-darwin-x86_64 .

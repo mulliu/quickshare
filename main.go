@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/user/quickshare/internal/fstore"
-	"github.com/user/quickshare/internal/netutil"
-	"github.com/user/quickshare/internal/qr"
-	"github.com/user/quickshare/internal/server"
+	"github.com/mulliu/quickshare/internal/fstore"
+	"github.com/mulliu/quickshare/internal/netutil"
+	"github.com/mulliu/quickshare/internal/qr"
+	"github.com/mulliu/quickshare/internal/server"
 )
 
 var version = "0.1.0"

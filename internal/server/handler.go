@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/user/quickshare/internal/fstore"
+	"github.com/mulliu/quickshare/internal/fstore"
 )
 
 func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
