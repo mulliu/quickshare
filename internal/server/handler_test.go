@@ -76,3 +76,19 @@ func TestCorsMiddlewareRejectsUnknownPreflightOrigin(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusForbidden)
 	}
 }
+
+func TestCorsMiddlewareRejectsUnknownPostOrigin(t *testing.T) {
+	s := &Server{lanIP: "192.168.1.10", port: 8080}
+	handler := s.corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("handler should not be called for rejected POST")
+	}))
+
+	req := httptest.NewRequest("POST", "/share-text", strings.NewReader(`{"text":"hello"}`))
+	req.Header.Set("Origin", "http://example.test")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusForbidden)
+	}
+}

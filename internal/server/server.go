@@ -162,10 +162,8 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 		origin := r.Header.Get("Origin")
 		if origin != "" {
 			if !allowedOrigins[origin] {
-				if r.Method == "OPTIONS" {
-					http.Error(w, "origin not allowed", http.StatusForbidden)
-					return
-				}
+				http.Error(w, "origin not allowed", http.StatusForbidden)
+				return
 			} else {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Vary", "Origin")
