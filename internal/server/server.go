@@ -83,10 +83,9 @@ func (s *Server) Serve(listener net.Listener) error {
 
 	addr := fmt.Sprintf("%s:%d", s.lanIP, s.port)
 	s.srv = &http.Server{
-		Handler:      withLogging(corsMiddleware(mux)),
-		ReadTimeout:  0,
-		WriteTimeout: 0,
-		IdleTimeout:  0,
+		Handler:           withLogging(s.corsMiddleware(mux)),
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	log.Printf("Listening on %s", addr)
@@ -111,6 +110,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 func (s *Server) ShutdownHandler(w http.ResponseWriter, r *http.Request) {
+	if !isLocalRequest(r) {
+		http.Error(w, "shutdown is only allowed from this computer", http.StatusForbidden)
+		return
+	}
 	w.Write([]byte("Server shutting down..."))
 	go s.srv.Shutdown(context.Background())
 }
@@ -120,6 +123,15 @@ func (s *Server) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	s.lastHeartbeat = time.Now()
 	s.seenHeartbeat = true
 	s.heartbeatMu.Unlock()
+}
+
+func isLocalRequest(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func (s *Server) watchdog() {
@@ -139,11 +151,28 @@ func (s *Server) watchdog() {
 	}
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
+func (s *Server) corsMiddleware(next http.Handler) http.Handler {
+	allowedOrigins := map[string]bool{
+		fmt.Sprintf("http://%s:%d", s.lanIP, s.port): true,
+		fmt.Sprintf("http://127.0.0.1:%d", s.port):   true,
+		fmt.Sprintf("http://localhost:%d", s.port):   true,
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			if !allowedOrigins[origin] {
+				if r.Method == "OPTIONS" {
+					http.Error(w, "origin not allowed", http.StatusForbidden)
+					return
+				}
+			} else {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			}
+		}
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)

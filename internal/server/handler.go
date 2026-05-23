@@ -2,14 +2,22 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/mulliu/quickshare/internal/fstore"
+)
+
+const (
+	maxSharedTextBytes = 1 << 20
+	maxTextEntries     = 16
 )
 
 func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +99,7 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, info.Name))
+	w.Header().Set("Content-Disposition", contentDisposition(info.Name))
 	w.Header().Set("Content-Type", info.MimeType)
 	http.ServeFile(w, r, path)
 }
@@ -125,10 +133,19 @@ func (s *Server) LatestText(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ShareText(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxSharedTextBytes)
+
 	var req struct {
 		Text string `json:"text"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	var extra json.RawMessage
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
@@ -144,10 +161,7 @@ func (s *Server) ShareText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	preview := content
-	if len(preview) > 80 {
-		preview = preview[:80] + "…"
-	}
+	preview := textPreview(content, 80)
 
 	s.textsMu.Lock()
 	s.texts[id] = textEntry{
@@ -156,6 +170,7 @@ func (s *Server) ShareText(w http.ResponseWriter, r *http.Request) {
 		Preview:   preview,
 		CreatedAt: time.Now(),
 	}
+	s.pruneTextsLocked()
 	s.textsMu.Unlock()
 
 	log.Printf("ShareText: id=%s (%d chars)", id, len(content))
@@ -166,6 +181,51 @@ func (s *Server) ShareText(w http.ResponseWriter, r *http.Request) {
 		"id":      id,
 		"preview": preview,
 	})
+}
+
+func (s *Server) pruneTextsLocked() {
+	for len(s.texts) > maxTextEntries {
+		var oldestID string
+		var oldestTime time.Time
+		for id, t := range s.texts {
+			if oldestID == "" || t.CreatedAt.Before(oldestTime) {
+				oldestID = id
+				oldestTime = t.CreatedAt
+			}
+		}
+		delete(s.texts, oldestID)
+	}
+}
+
+func textPreview(content string, limit int) string {
+	runes := []rune(content)
+	if len(runes) <= limit {
+		return content
+	}
+	return string(runes[:limit]) + "…"
+}
+
+func contentDisposition(name string) string {
+	fallback := asciiFilename(name)
+	if fallback == "" {
+		fallback = "download"
+	}
+	return fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, fallback, url.PathEscape(name))
+}
+
+func asciiFilename(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r == '\\' || r == '"' || r == '\r' || r == '\n':
+			b.WriteByte('_')
+		case r >= 0x20 && r <= 0x7e:
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
 }
 
 func formatBytes(n int64) string {
