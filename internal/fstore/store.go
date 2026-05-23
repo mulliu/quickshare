@@ -30,6 +30,7 @@ type Store struct {
 	ttl       time.Duration
 	baseURL   string
 	done      chan struct{}
+	closeOnce sync.Once
 }
 
 type entry struct {
@@ -86,7 +87,10 @@ func (s *Store) Add(originalName string, mimeType string, src io.Reader) (*FileI
 		os.Remove(savePath)
 		return nil, err
 	}
-	file.Close()
+	if err := file.Close(); err != nil {
+		os.Remove(savePath)
+		return nil, err
+	}
 
 	mime := mimeType
 	if mime == "" {
@@ -123,15 +127,22 @@ func (s *Store) Get(id string) (*FileInfo, string, bool) {
 }
 
 // List returns all files sorted by creation time (newest first).
-// Stale entries (missing on disk) are skipped.
+// Stale entries (missing on disk) are skipped. New files appearing in the
+// output directory since startup are picked up automatically.
 func (s *Store) List() []FileInfo {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Remove stale entries
 	for id, e := range s.files {
 		if _, err := os.Stat(e.path); os.IsNotExist(err) {
 			delete(s.files, id)
 		}
 	}
+
+	// Discover new files manually placed in the output directory
+	s.scanNewFiles()
+
 	result := make([]FileInfo, 0, len(s.files))
 	for _, e := range s.files {
 		result = append(result, e.info)
@@ -152,6 +163,52 @@ func (s *Store) Remove(id string) {
 	s.mu.Unlock()
 	if ok {
 		os.Remove(e.path)
+	}
+}
+
+// scanNewFiles discovers files manually placed in the output directory
+// that are not yet tracked. Must be called with s.mu held.
+func (s *Store) scanNewFiles() {
+	tracked := make(map[string]bool, len(s.files))
+	for _, e := range s.files {
+		tracked[e.path] = true
+	}
+
+	entries, err := os.ReadDir(s.outputDir)
+	if err != nil {
+		return
+	}
+	for _, de := range entries {
+		if de.IsDir() {
+			continue
+		}
+		name := de.Name()
+		if strings.HasPrefix(name, ".") || strings.HasSuffix(name, "~") {
+			continue
+		}
+		path := filepath.Join(s.outputDir, name)
+		if tracked[path] {
+			continue
+		}
+		fi, err := de.Info()
+		if err != nil || fi.Size() == 0 {
+			continue
+		}
+		id, err := GenerateID()
+		if err != nil {
+			continue
+		}
+		s.files[id] = &entry{
+			info: FileInfo{
+				ID:        id,
+				Name:      name,
+				Size:      fi.Size(),
+				MimeType:  detectMime(name),
+				URL:       s.baseURL + "/download/" + id,
+				CreatedAt: fi.ModTime(),
+			},
+			path: path,
+		}
 	}
 }
 
@@ -196,7 +253,9 @@ func (s *Store) ScanExisting() {
 
 // Close stops the cleanup goroutine.
 func (s *Store) Close() {
-	close(s.done)
+	s.closeOnce.Do(func() {
+		close(s.done)
+	})
 }
 
 // cleanupLoop runs periodically to remove expired files.

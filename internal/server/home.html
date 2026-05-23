@@ -409,9 +409,12 @@
     }
   });
 
-  setInterval(function() {
+  sendHeartbeat();
+  setInterval(sendHeartbeat, 3000);
+
+  function sendHeartbeat() {
     fetch('/heartbeat');
-  }, 3000);
+  }
 
   function esc(s) {
     var d = document.createElement('div');

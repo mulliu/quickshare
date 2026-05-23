@@ -29,6 +29,7 @@ type Server struct {
 	srv           *http.Server
 	logFile       *os.File
 	lastHeartbeat time.Time
+	seenHeartbeat bool
 	heartbeatMu   sync.Mutex
 	texts         map[string]textEntry
 	textsMu       sync.Mutex
@@ -78,7 +79,6 @@ func (s *Server) Serve(listener net.Listener) error {
 	mux.HandleFunc("POST /shutdown", s.ShutdownHandler)
 	mux.HandleFunc("GET /heartbeat", s.Heartbeat)
 
-	s.lastHeartbeat = time.Now()
 	go s.watchdog()
 
 	addr := fmt.Sprintf("%s:%d", s.lanIP, s.port)
@@ -118,6 +118,7 @@ func (s *Server) ShutdownHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	s.heartbeatMu.Lock()
 	s.lastHeartbeat = time.Now()
+	s.seenHeartbeat = true
 	s.heartbeatMu.Unlock()
 }
 
@@ -128,7 +129,7 @@ func (s *Server) watchdog() {
 	defer ticker.Stop()
 	for range ticker.C {
 		s.heartbeatMu.Lock()
-		stale := time.Since(s.lastHeartbeat) > heartbeatTimeout
+		stale := s.seenHeartbeat && time.Since(s.lastHeartbeat) > heartbeatTimeout
 		s.heartbeatMu.Unlock()
 		if stale {
 			log.Printf("No clients detected for %s, shutting down", heartbeatTimeout)

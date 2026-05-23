@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -70,8 +71,15 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		store.Add(filepath.Base(*share), "", f)
-		f.Close()
+		if _, err := store.Add(filepath.Base(*share), "", f); err != nil {
+			f.Close()
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		if err := f.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	srv, err := server.New(store, lanIP, *port, *maxSize, qrPNG)
@@ -85,8 +93,19 @@ func main() {
 	go func() { <-sigCh; srv.Shutdown(context.Background()) }()
 
 	if !*noBrowser && runtime.GOOS == "windows" {
-		exec.Command("rundll32", "url.dll,FileProtocolHandler", localURL).Start()
+		if err := openBrowser(localURL); err != nil {
+			log.Printf("Failed to open browser: %v", err)
+		}
 	}
 
-	srv.Serve(listener)
+	if err := srv.Serve(listener); err != nil {
+		log.Printf("Server stopped: %v", err)
+	}
+}
+
+func openBrowser(url string) error {
+	if err := exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start(); err == nil {
+		return nil
+	}
+	return exec.Command("cmd", "/c", "start", "", url).Start()
 }
