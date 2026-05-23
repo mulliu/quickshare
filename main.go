@@ -22,7 +22,7 @@ import (
 	"github.com/mulliu/quickshare/internal/server"
 )
 
-var version = "0.1.0"
+var version = "0.1.1"
 
 func main() {
 	port := flag.Int("p", 0, "port to listen on")
@@ -84,7 +84,7 @@ func main() {
 		}
 	}
 
-	srv, err := server.New(store, lanIP, *port, *maxSize, qrPNG)
+	srv, err := server.New(store, lanIP, *port, *maxSize, qrPNG, version)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

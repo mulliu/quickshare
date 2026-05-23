@@ -24,6 +24,7 @@ type Server struct {
 	lanIP         string
 	port          int
 	maxSize       int64
+	version       string
 	tmpl          *template.Template
 	qrPNG         []byte
 	srv           *http.Server
@@ -42,7 +43,7 @@ type textEntry struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func New(store *fstore.Store, lanIP string, port int, maxSize int64, qrPNG []byte) (*Server, error) {
+func New(store *fstore.Store, lanIP string, port int, maxSize int64, qrPNG []byte, version string) (*Server, error) {
 	tmpl, err := template.ParseFS(homeTemplate, "home.html")
 	if err != nil {
 		return nil, err
@@ -60,6 +61,7 @@ func New(store *fstore.Store, lanIP string, port int, maxSize int64, qrPNG []byt
 		lanIP:   lanIP,
 		port:    port,
 		maxSize: maxSize,
+		version: version,
 		tmpl:    tmpl,
 		qrPNG:   qrPNG,
 		logFile: f,

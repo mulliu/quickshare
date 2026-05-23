@@ -27,6 +27,7 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		"BaseURL": baseURL,
 		"LANIP":   s.lanIP,
 		"Port":    fmt.Sprintf("%d", s.port),
+		"Version": s.version,
 	})
 	if err != nil {
 		log.Printf("template error: %v", err)
