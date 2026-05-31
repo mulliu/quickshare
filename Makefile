@@ -1,5 +1,5 @@
 APP=quickshare
-VERSION=0.1.1
+VERSION=0.1.2
 
 .PHONY: build build-windows build-all clean run test
 

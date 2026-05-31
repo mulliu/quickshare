@@ -84,6 +84,14 @@ func isVirtual(name string) bool {
 			return true
 		}
 	}
+	// Windows virtual adapters (Hyper-V/WSL, Wi-Fi Direct/hosted-network/ICS hotspot).
+	// e.g. "vEthernet (WSL (Hyper-V firewall))", "本地连接* 10", "Local Area Connection* 3".
+	virtualSubstrings := []string{"vethernet", "hyper-v", "wi-fi direct", "本地连接*", "local area connection*"}
+	for _, sub := range virtualSubstrings {
+		if containsInsensitive(name, sub) {
+			return true
+		}
+	}
 	return false
 }
 
@@ -106,11 +114,11 @@ func ifacePriority(name string) int {
 	case len(name) >= 2 && (name[:2] == "en" || name[:2] == "et"):
 		return 20 // Linux Ethernet
 	}
-	// Check for common patterns in longer names
-	if containsInsensitive(name, "wi-fi") || containsInsensitive(name, "wireless") || containsInsensitive(name, "wlan") {
+	// Check for common patterns in longer names (incl. Chinese Windows adapter names)
+	if containsInsensitive(name, "wi-fi") || containsInsensitive(name, "wireless") || containsInsensitive(name, "wlan") || contains(name, "无线") {
 		return 10
 	}
-	if containsInsensitive(name, "eth") || containsInsensitive(name, "ethernet") {
+	if containsInsensitive(name, "eth") || containsInsensitive(name, "ethernet") || contains(name, "以太网") {
 		return 20
 	}
 	return 30

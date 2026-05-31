@@ -22,7 +22,7 @@ import (
 	"github.com/mulliu/quickshare/internal/server"
 )
 
-var version = "0.1.1"
+var version = "0.1.2"
 
 func main() {
 	port := flag.Int("p", 0, "port to listen on")
